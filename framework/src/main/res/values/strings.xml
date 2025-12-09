@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fw_account_label">Fw</string>
+    <string name="fw_notification_channel">保活服务</string>
+    <string name="fw_notification_title">服务运行中</string>
+    <string name="fw_notification_content">点击打开应用</string>
+    <string name="accessibility_service_description">Fw 保活服务 - 用于安全研究的无障碍服务</string>
+</resources>

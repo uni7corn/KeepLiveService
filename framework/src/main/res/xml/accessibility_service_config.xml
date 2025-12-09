@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    无障碍服务配置
+
+    安全研究要点：
+    - 无障碍服务是系统级服务，优先级极高
+    - 系统不会随意杀死无障碍服务
+    - 需要用户手动开启，但开启后非常稳定
+    - 部分厂商可能限制无障碍服务
+
+    配置说明：
+    - accessibilityEventTypes: 监听的事件类型
+    - accessibilityFeedbackType: 反馈类型
+    - notificationTimeout: 事件超时时间
+    - canRetrieveWindowContent: 是否可以获取窗口内容
+    - settingsActivity: 设置入口 Activity
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100"
+    android:packageNames=""
+    android:settingsActivity="" />

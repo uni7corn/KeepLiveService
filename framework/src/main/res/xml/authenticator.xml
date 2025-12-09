@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    账户认证器配置
+
+    安全研究要点：
+    - 定义账户类型和相关属性
+    - 用于账户同步机制
+-->
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accountType="com.service.framework.account"
+    android:icon="@android:drawable/ic_menu_info_details"
+    android:label="@string/fw_account_label"
+    android:smallIcon="@android:drawable/ic_menu_info_details" />

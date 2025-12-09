@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Fw 保活模块
+        安全研究用途：完整复现音乐类应用的保活机制
+
+        权限说明：
+        1. 前台服务权限 - 启动前台服务
+        2. 蓝牙权限 - 监听蓝牙事件（核心保活机制）
+        3. USB 权限 - 监听 USB 设备连接（打印机、U盘、配件）
+        4. NFC 权限 - 监听 NFC 标签发现
+        5. 网络权限 - 监听网络变化
+        6. 电源权限 - WakeLock
+        7. 闹钟权限 - AlarmManager
+        8. 开机广播权限 - 开机自启
+        9. 账户权限 - 账户同步
+    -->
+
+    <!-- ==================== 权限声明 ==================== -->
+
+    <!-- 前台服务权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- 蓝牙权限（核心：酷狗音乐的关键） -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+
+    <!-- USB 权限（打印机、U盘、配件等） -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.accessory" android:required="false" />
+
+    <!-- NFC 权限 -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+
+    <!-- 网络权限 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 电源权限 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- 闹钟权限 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- 开机广播权限 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 账户权限 -->
+    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS"
+        android:maxSdkVersion="22" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS"
+        android:maxSdkVersion="22" />
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+
+    <!-- 通知权限 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 存储权限（用于 ContentObserver 和 FileObserver） -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- 联系人权限（用于 ContentObserver） -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- 短信权限（用于 ContentObserver） -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+
+    <!-- 悬浮窗权限（用于悬浮球保活） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 锁屏显示权限 -->
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <application>
+
+        <!-- ==================== 前台服务 ==================== -->
+
+        <!--
+            主保活服务
+            foregroundServiceType="mediaPlayback" 是关键
+            让系统认为这是媒体播放服务，获得特殊后台权限
+        -->
+        <service
+            android:name="com.service.framework.service.FwForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!--
+            守护进程服务
+            运行在独立进程 :daemon
+            与主进程互相守护
+        -->
+        <service
+            android:name="com.service.framework.service.DaemonService"
+            android:exported="false"
+            android:process=":daemon"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- ==================== JobScheduler 服务 ==================== -->
+
+        <service
+            android:name="com.service.framework.strategy.FwJobService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- ==================== 账户同步服务 ==================== -->
+
+        <!-- 账户认证服务 -->
+        <service
+            android:name="com.service.framework.account.AuthenticatorService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
+
+        <!-- 同步服务 -->
+        <service
+            android:name="com.service.framework.account.SyncService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
+
+        <!-- 同步用 ContentProvider -->
+        <provider
+            android:name="com.service.framework.account.StubContentProvider"
+            android:authorities="com.service.framework.account"
+            android:exported="false"
+            android:syncable="true" />
+
+        <!-- ==================== 广播接收器 ==================== -->
+
+        <!--
+            蓝牙广播接收器（核心：酷狗音乐唤醒的关键）
+
+            监听的广播：
+            1. ACL_CONNECTED - 蓝牙设备底层连接
+            2. A2DP连接状态 - 音频连接
+            3. 耳机连接状态 - 耳机profile连接
+            4. 蓝牙适配器状态 - 蓝牙开关
+            5. A2DP播放状态 - 音频播放
+            6. 音频输出变化 - 耳机拔出
+
+            这些广播可以静态注册，即使应用被杀也能唤醒
+            但强制停止后会被禁用
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.BluetoothReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="1000">
+                <!-- 蓝牙设备连接（底层ACL） -->
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+
+                <!-- A2DP 音频连接状态 -->
+                <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
+                <action android:name="android.bluetooth.a2dp.profile.action.PLAYING_STATE_CHANGED" />
+
+                <!-- 蓝牙耳机连接状态 -->
+                <action android:name="android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" />
+
+                <!-- 蓝牙适配器状态 -->
+                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
+                <action android:name="android.bluetooth.adapter.action.CONNECTION_STATE_CHANGED" />
+
+                <!-- 音频输出变化 -->
+                <action android:name="android.media.AUDIO_BECOMING_NOISY" />
+
+                <!-- 测试广播 -->
+                <action android:name="com.service.framework.TEST_WAKEUP" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            媒体按键广播接收器
+
+            监听媒体按键事件，蓝牙耳机的按键也会触发
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.MediaButtonReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="2147483647">
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            系统事件广播接收器
+
+            以下广播可以静态注册：
+            - BOOT_COMPLETED - 开机完成
+            - LOCKED_BOOT_COMPLETED - 锁定启动完成
+            - MY_PACKAGE_REPLACED - 应用更新
+
+            注意：大部分系统广播在 Android 8.0+ 无法静态注册
+            需要动态注册
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.SystemEventReceiver"
+            android:exported="true"
+            android:enabled="true"
+            android:directBootAware="true">
+            <intent-filter android:priority="1000">
+                <!-- 开机完成（可静态注册） -->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+
+                <!-- 应用更新（可静态注册） -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+
+                <!-- 以下广播在旧版本可静态注册 -->
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.AIRPLANE_MODE" />
+
+                <!-- Native 层唤醒广播 -->
+                <action android:name="com.service.framework.NATIVE_WAKEUP" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            USB 设备广播接收器
+
+            监听 USB 设备连接事件：
+            - 打印机、扫描仪
+            - U盘、移动硬盘
+            - 摄像头
+            - USB 配件（AOA 模式）
+
+            USB 广播可以静态注册！
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.UsbReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="1000">
+                <!-- USB 设备连接/断开 -->
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
+
+                <!-- USB 配件（AOA 模式）连接/断开 -->
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_DETACHED" />
+
+                <!-- USB 状态变化 -->
+                <action android:name="android.hardware.usb.action.USB_STATE" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            NFC 广播接收器
+
+            监听 NFC 事件：
+            - NFC 标签发现
+            - NFC 适配器状态变化
+
+            NFC 广播可以静态注册！
+            需要在 tech_list.xml 中指定支持的技术
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.NfcReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="1000">
+                <!-- NFC 标签发现（通用，作为最后回退） -->
+                <action android:name="android.nfc.action.TAG_DISCOVERED" />
+
+                <!-- NFC 适配器状态变化 -->
+                <action android:name="android.nfc.action.ADAPTER_STATE_CHANGED" />
+
+                <!-- NFC 交易检测（HCE） -->
+                <action android:name="android.nfc.action.TRANSACTION_DETECTED" />
+            </intent-filter>
+
+            <!-- 支持所有 NFC 技术 -->
+            <meta-data
+                android:name="android.nfc.action.TECH_DISCOVERED"
+                android:resource="@xml/nfc_tech_list" />
+        </receiver>
+
+        <!--
+            媒体挂载广播接收器
+
+            监听外部存储事件：
+            - SD 卡插拔
+            - U盘挂载/卸载
+            - 媒体扫描完成
+
+            媒体挂载广播可以静态注册！
+        -->
+        <receiver
+            android:name="com.service.framework.receiver.MediaMountReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="1000">
+                <!-- 存储挂载/卸载 -->
+                <action android:name="android.intent.action.MEDIA_MOUNTED" />
+                <action android:name="android.intent.action.MEDIA_UNMOUNTED" />
+                <action android:name="android.intent.action.MEDIA_EJECT" />
+                <action android:name="android.intent.action.MEDIA_REMOVED" />
+                <action android:name="android.intent.action.MEDIA_BAD_REMOVAL" />
+
+                <!-- 媒体扫描 -->
+                <action android:name="android.intent.action.MEDIA_SCANNER_STARTED" />
+                <action android:name="android.intent.action.MEDIA_SCANNER_FINISHED" />
+
+                <!-- 需要 file scheme -->
+                <data android:scheme="file" />
+            </intent-filter>
+        </receiver>
+
+        <!-- AlarmManager 唤醒接收器 -->
+        <receiver
+            android:name="com.service.framework.strategy.AlarmReceiver"
+            android:exported="false"
+            android:enabled="true" />
+
+        <!-- ==================== 系统级服务 ==================== -->
+
+        <!--
+            无障碍服务
+
+            系统级服务，优先级极高
+            需要用户手动开启，但开启后非常稳定
+            系统不会随意杀死无障碍服务
+        -->
+        <service
+            android:name="com.service.framework.strategy.FwAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!--
+            通知监听服务
+
+            系统级服务，可以监听所有通知
+            需要用户手动授权，授权后服务会被系统保护
+            被杀后系统会自动重启
+        -->
+        <service
+            android:name="com.service.framework.strategy.FwNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- ==================== 1 像素 Activity ==================== -->
+
+        <!--
+            1 像素 Activity
+
+            在屏幕关闭时启动，提升进程优先级
+            设置为透明主题，对用户不可见
+        -->
+        <activity
+            android:name="com.service.framework.strategy.OnePixelActivity"
+            android:exported="false"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="false"
+            android:launchMode="singleInstance"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- ==================== 锁屏 Activity ==================== -->
+
+        <!--
+            锁屏 Activity
+
+            在锁屏界面上显示，类似墨迹天气的"锁屏天气"
+            可以显示时钟、天气等"有用"信息
+            实际上是保活手段，让应用保持前台状态
+        -->
+        <activity
+            android:name="com.service.framework.strategy.LockScreenActivity"
+            android:exported="false"
+            android:configChanges="keyboardHidden|orientation|screenSize|screenLayout"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
+    </application>
+
+</manifest>

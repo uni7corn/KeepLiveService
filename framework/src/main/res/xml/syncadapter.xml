@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    同步适配器配置
+
+    安全研究要点：
+    - 定义同步行为
+    - userVisible="false" 隐藏同步账户
+    - supportsUploading="false" 不支持上传（纯拉活用）
+    - isAlwaysSyncable="true" 始终可同步
+    - allowParallelSyncs="false" 不允许并行同步
+-->
+<sync-adapter xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accountType="com.service.framework.account"
+    android:allowParallelSyncs="false"
+    android:contentAuthority="com.service.framework.account"
+    android:isAlwaysSyncable="true"
+    android:supportsUploading="false"
+    android:userVisible="false" />
